@@ -11,7 +11,7 @@ pipeline {
         stage('Validate Composer') {
             steps {
                 script {
-                    def composerValidationResult = sh(script: 'composer validate --no-check-all --quiet', returnStatus: true)
+                    def composerValidationResult = sh(script: 'cd /var/lib/jenkins/jobs/status-new/workspace && composer validate --no-check-all --quiet', returnStatus: true)
                     if (composerValidationResult == 0) {
                         echo 'Composer validation passed.'
                         currentBuild.result = 'SUCCESS'
