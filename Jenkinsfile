@@ -1,50 +1,63 @@
 pipeline {
     agent any
 
-    environment {
-        GITHUB_TOKEN = credentials('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') // Use the ID of your GitHub credentials
-        GITHUB_API_URL = 'https://api.github.com'
-        REPO_OWNER = 'nikhilP-addweb'
-        REPO_NAME = 'nikhilP-addweb/status-new'
-    }
-
     stages {
         stage('Checkout') {
             steps {
-                // Check out your code from Git repository
                 checkout scm
             }
         }
-
-        stage('Composer Validate') {
+        
+        stage('Validate Composer') {
             steps {
                 script {
-                    // Install Composer
-                    sh 'cd /var/lib/jenkins/jobs/status-new/workspace'
-                    sh 'composer install'
-                    
-                    // Run composer validate command
-                    def validateResult = sh(returnStatus: true, script: 'composer validate')
-
-                    // Update GitHub status check based on validation result
-                    def status = validateResult == 0 ? 'success' : 'failure'
-                    def description = validateResult == 0 ? 'Composer validation passed' : 'Composer validation failed'
-
-                    sh """
-                        curl -X POST \\
-                        -H "Authorization: token ${GITHUB_TOKEN}" \\
-                        -d '{
-                            "state": "${status}",
-                            "context": "Composer Validation",
-                            "description": "${description}",
-                            "target_url": "${env.BUILD_URL}"
-                        }' \\
-                        ${GITHUB_API_URL}/repos/${REPO_OWNER}/${REPO_NAME}/statuses/${env.GIT_COMMIT}
-                    """
+                    def composerValidationResult = sh(script: 'composer validate --no-check-all --quiet', returnStatus: true)
+                    if (composerValidationResult == 0) {
+                        echo 'Composer validation passed.'
+                        currentBuild.result = 'SUCCESS'
+                        updateGitHubStatus('success', 'Composer validation passed')
+                    } else {
+                        echo 'Composer validation failed.'
+                        currentBuild.result = 'FAILURE'
+                        updateGitHubStatus('failure', 'Composer validation failed')
+                        error("Composer validation failed")
+                    }
                 }
             }
         }
+        
     }
 
+}
+
+def updateGitHubStatus(status, message) {
+    script {
+        def accessToken = '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'
+        def baseUrl = 'https://api.github.com'
+        def context = 'Jenkins/Composer-Validate'
+        
+        def commit = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
+        
+        def payload = """
+        {
+            "state": "$status",
+            "target_url": "${env.BUILD_URL}",
+            "description": "$message",
+            "context": "$context"
+        }
+        """
+        
+        def apiUrl = "${baseUrl}/repos/${env.GITHUB_REPO_OWNER}/${env.GITHUB_REPO_NAME}/statuses/${commit}"
+        
+        def response = httpRequest(
+            url: apiUrl,
+            httpMode: 'POST',
+            authentication: accessToken,
+            contentType: 'APPLICATION_JSON',
+            requestBody: payload
+        )
+        
+        echo "GitHub Status Update Response: ${response}"
+    }
 }
 
