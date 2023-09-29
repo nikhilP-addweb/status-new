@@ -15,7 +15,7 @@
 
     - name: Use a Secret
       env:
-        MY_SECRET: ${{ secrets.vinu }}
+        MY_SECRET: ${{ secrets.VINU }}
       run: |
         echo "The secret value is: $MY_SECRET"
 
